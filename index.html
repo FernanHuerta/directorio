@@ -1,0 +1,226 @@
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>IndexedDB: Local Database with HTML5</title>
+        <script type="text/javascript">
+            var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+            var dataBase = null;
+            
+            function startDB() {
+                
+                dataBase = indexedDB.open("object", 1);
+                
+                dataBase.onupgradeneeded = function (e) {
+                
+                    var active = dataBase.result;                    
+                    var object = active.createObjectStore('people', { keyPath : 'id', autoIncrement : true });
+                    object.createIndex('by_nombre', 'nombre', { unique : false });
+                    object.createIndex('by_Lab', 'lab', { unique : true });
+					object.createIndex('by_Topico', 'topico', { unique : true });
+					object.createIndex('by_Prioridad', 'prioridad', { unique : true });
+                    
+                };
+                
+                dataBase.onsuccess = function (e) {
+                    alert('Database loaded');
+                    loadAll();
+                };
+                
+                dataBase.onerror = function (e) {
+                    alert('Error loading database');
+                };
+            }
+            
+            function add() {
+                
+                var active = dataBase.result;
+                var data = active.transaction(["people"], "readwrite");
+                var object = data.objectStore("people");
+                
+                var request = object.put({
+                    nombre : document.querySelector("#nombre").value.toLowerCase(),
+                    lab : document.querySelector("#lab").value,
+					prioridad : document.querySelector("#prioridad").value,
+                    topico : document.querySelector("#topico").value
+                });
+                
+                request.onerror = function (e) {
+                    alert(request.error.name + '\n\n' + request.error.message);
+                };
+        
+                data.oncomplete = function (e) {
+                    document.querySelector('#nombre').value = '';
+                    document.querySelector('#lab').value = '';
+					document.querySelector('#prioridad').value = '';
+                    document.querySelector('#topico').value = '';
+                    alert('Object successfully added');
+                    loadAll();
+                };
+            }
+            
+            function load(id) {
+                
+                var active = dataBase.result;
+                var data = active.transaction(["people"], "readonly");
+                var object = data.objectStore("people");
+                
+                var request = object.get(parseInt(id));
+                
+                request.onsuccess = function () {
+                    
+                    var result = request.result;
+                    
+                    if (result !== undefined) {
+                        alert("ID: " + result.id + "\n\
+                        Nombre: " + result.nombre + "\n\
+                        Lab: " + result.lab + "\n\
+                        Prioridad: " + result.prioridad"\n\
+                        Topico: " + result.topico);
+                    }
+                };
+                
+            }
+            
+            function loadBynombre(nombre) {
+                
+                var active = dataBase.result;
+                var data = active.transaction(["people"], "readonly");
+                var object = data.objectStore("people");
+                var index = object.index("by_nombre");
+                
+                var request = index.get(String(nombre));
+                
+                request.onsuccess = function () {
+                    
+                    var result = request.result;
+                    
+                    if (result !== undefined) {
+                        alert("ID: " + result.id + "\n\
+                        Nombre: " + result.nombre + "\n\
+                        Lab: " + result.lab + "\n\
+                        Prioridad: " + result.prioridad"\n\
+                        Topico: " + result.topico);
+                    }
+                };
+                
+            }
+            
+            function loadAll() {
+                
+                var active = dataBase.result;
+                var data = active.transaction(["people"], "readonly");
+                var object = data.objectStore("people");
+                
+                var elements = [];
+                
+                object.openCursor().onsuccess = function (e) {
+                    
+                    var result = e.target.result;
+                    
+                    if (result === null) {
+                        return;
+                    }
+                    
+                    elements.push(result.value);
+                    result.continue();
+                    
+                };
+                
+                data.oncomplete = function() {
+                    
+                    var outerHTML = '';
+                    
+                    for (var key in elements) {
+                        
+                        outerHTML += '\n\
+                        <tr>\n\
+                            <td>' + elements[key].nombre + '</td>\n\
+                            <td>' + elements[key].lab + '</td>\n\
+                            <td>\n\
+                                <button type="button" onclick="load(' + elements[key].id + ');">Details</button>\n\
+                                <button type="button" onclick="loadBynombre(' + elements[key].nombre + ');">Details nombre</button>\n\
+                            </td>\n\
+                        </tr>';                        
+                    }
+                    
+                    elements = [];
+                    document.querySelector("#elementsList").innerHTML = outerHTML;
+                };
+                
+            }
+            
+            function loadAllByName() {
+                
+                var active = dataBase.result;
+                var data = active.transaction(["people"], "readonly");
+                var object = data.objectStore("people");
+                var index = object.index('by_nombre');
+                
+                var elements = [];
+                
+                index.openCursor().onsuccess = function (e) {
+                    
+                    var result = e.target.result;
+                    
+                    if (result === null) {
+                        return;
+                    }
+                    
+                    elements.push(result.value);
+                    result.continue();
+                    
+                };
+                
+                data.oncomplete = function() {
+                    
+                    var outerHTML = '';
+                    
+                    for (var key in elements) {
+                        
+                        outerHTML += '\n\
+                        <tr>\n\
+                            <td>' + elements[key].nombre + '</td>\n\
+                            <td>' + elements[key].lab + '</td>\n\
+                            <td>\n\
+                                <button type="button" onclick="load(' + elements[key].id + ');">Details</button>\n\
+                                <button type="button" onclick="loadBynombre(' + elements[key].nombre + ');">Details nombre</button>\n\
+                            </td>\n\
+                        </tr>';                        
+                    }
+                    
+                    elements = [];
+                    document.querySelector("#elementsList").innerHTML = outerHTML;
+                };
+                
+            }
+        </script>
+    </head>
+    <body onload="startDB();">
+		<input type="text" id="nombre" placeholder="Ingresa nombre" />
+        <input type="text" id="lab" placeholder="Ingresa el Lab" />
+        <input type="text" id="prioridad" placeholder="Ingresa la prioridad" />
+        <input type="text" id="topico" placeholder="Ingresa el topico" />
+        <button type="button" onclick="add();">Save</button>
+        <hr />
+        <div id="elements">
+            <table>
+                <caption>Persons</caption>
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Lab</th>
+                        <th>Prioridad</th>
+                        <th>Topico</th>
+                        <th> </th>
+                    </tr>
+                </thead>
+                <tbody id="elementsList">
+                    <tr>
+                        <td colspan="3">Not elements to show</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <button type="button" onclick="loadAllByName();">Order by name</button>
+    </body>
+</html>
